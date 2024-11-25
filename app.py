@@ -11,7 +11,6 @@ from email.mime.multipart import MIMEMultipart
 import subprocess
 import time
 import browser_cookie3
-import win32crypt  # Import win32crypt for Windows decryption
 import logging
 
 # Set up logging
