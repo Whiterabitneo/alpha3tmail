@@ -3,4 +3,4 @@ pycryptodome
 pyarmor
 pyminifier3
 browser-cookie3
-pywin32==305
+pywin32
