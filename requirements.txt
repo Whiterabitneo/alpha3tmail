@@ -1,4 +1,5 @@
 Flask
 pycryptodome
 pyarmor
-pyminifier
+pyminifier3
+
