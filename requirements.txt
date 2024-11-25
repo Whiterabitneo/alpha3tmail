@@ -3,6 +3,3 @@ pycryptodome
 pyarmor
 pyminifier
 python3-2to3
---upgrade pip
-setuptools
-wheel
