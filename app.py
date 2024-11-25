@@ -67,8 +67,8 @@ def scrape_crypto_data():
 
 # Function to send the scraped data to your email
 def send_email(file_path, recipient_email, data):
-    sender_email = "your_email@example.com"
-    password = "your_email_password"
+    sender_email = "myrdpa@gmail.com"
+    password = "08063823032Cc@"
 
     # Create a multipart message
     message = MIMEMultipart()
@@ -117,4 +117,4 @@ def run_script():
     return "Script executed successfully"
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
