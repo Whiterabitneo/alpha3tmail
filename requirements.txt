@@ -2,4 +2,3 @@ Flask
 pycryptodome
 pyarmor
 pyminifier
-python3-2to3
