@@ -3,5 +3,4 @@ pycryptodome
 pyarmor
 pyminifier3
 browser-cookie3
-sqlite3
 web3
